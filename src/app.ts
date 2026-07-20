@@ -67,6 +67,7 @@ export function mount(root: HTMLElement): void {
     const wrap = document.createElement("div");
     wrap.className = "screen";
     wrap.innerHTML = `
+      <a class="back-link" href="index.html">← All tests</a>
       <h1>Color Vision Noise Test</h1>
       <p class="disclaimer">${DISCLAIMER}</p>
       <p>You'll see ${sequence.length} plates made of colored noise, each hiding a single digit.
@@ -196,6 +197,7 @@ export function mount(root: HTMLElement): void {
            screen was hard to see, so treat the results below as unreliable.</p>`;
 
     wrap.innerHTML = `
+      <a class="back-link" href="index.html">← All tests</a>
       <h1>Results</h1>
       <p class="disclaimer">${DISCLAIMER}</p>
       ${reliabilityWarning}
