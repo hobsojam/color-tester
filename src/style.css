@@ -66,6 +66,23 @@ h1 {
   margin: 0;
 }
 
+.timer-bar {
+  width: 100%;
+  max-width: 320px;
+  height: 4px;
+  background: #2c3038;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.timer-fill {
+  height: 100%;
+  width: 100%;
+  background: #3d7bfd;
+  transition-property: width;
+  transition-timing-function: linear;
+}
+
 .pad {
   display: grid;
   grid-template-columns: repeat(5, 1fr);

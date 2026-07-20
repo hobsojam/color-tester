@@ -18,6 +18,7 @@ const DEFICIENCIES: Deficiency[] = ["protan", "deutan", "tritan"];
 const PLATES_PER_TYPE = 5;
 const CONTROL_PLATES = 2;
 const BLANK_PLATES = 2;
+const TIME_LIMIT_MS = 15_000;
 
 const DISCLAIMER =
   "This is a casual, for-fun screening toy — not a medical device or diagnostic test. " +
@@ -72,8 +73,9 @@ export function mount(root: HTMLElement): void {
       A few are control plates that should be readable by everyone regardless of color vision, and
       a few are blank — no digit hidden at all — so the correct answer there is "Can't tell". Together
       they just check you're actually looking rather than guessing. Enter the digit you see, or
-      "Can't tell" if nothing is legible. Nothing you enter is stored or sent anywhere — everything
-      runs in your browser.</p>
+      "Can't tell" if nothing is legible — you have ${TIME_LIMIT_MS / 1000} seconds per plate, and
+      running out counts as "Can't tell" too. Nothing you enter is stored or sent anywhere —
+      everything runs in your browser.</p>
       <button id="start" class="primary">Start</button>
     `;
     root.appendChild(wrap);
@@ -87,6 +89,7 @@ export function mount(root: HTMLElement): void {
   function renderPlateScreen() {
     root.innerHTML = "";
     const item = sequence[current];
+    let answered = false;
 
     const wrap = document.createElement("div");
     wrap.className = "screen";
@@ -95,6 +98,13 @@ export function mount(root: HTMLElement): void {
     progress.className = "progress";
     progress.textContent = `Plate ${current + 1} of ${sequence.length}`;
     wrap.appendChild(progress);
+
+    const timerBar = document.createElement("div");
+    timerBar.className = "timer-bar";
+    const timerFill = document.createElement("div");
+    timerFill.className = "timer-fill";
+    timerBar.appendChild(timerFill);
+    wrap.appendChild(timerBar);
 
     const canvas = document.createElement("canvas");
     canvas.className = "plate";
@@ -110,7 +120,7 @@ export function mount(root: HTMLElement): void {
     for (let d = 0; d <= 9; d++) {
       const btn = document.createElement("button");
       btn.textContent = String(d);
-      btn.onclick = () => answer(String(d));
+      btn.onclick = () => submitAnswer(String(d));
       pad.appendChild(btn);
     }
     wrap.appendChild(pad);
@@ -118,10 +128,25 @@ export function mount(root: HTMLElement): void {
     const skip = document.createElement("button");
     skip.className = "secondary";
     skip.textContent = "Can't tell";
-    skip.onclick = () => answer("none");
+    skip.onclick = () => submitAnswer("none");
     wrap.appendChild(skip);
 
     root.appendChild(wrap);
+
+    // Kick off the shrinking timer bar on the next frame so the initial
+    // full-width state paints before the transition starts.
+    requestAnimationFrame(() => {
+      timerFill.style.transitionDuration = `${TIME_LIMIT_MS}ms`;
+      timerFill.style.width = "0%";
+    });
+    const timeoutId = window.setTimeout(() => submitAnswer("none"), TIME_LIMIT_MS);
+
+    function submitAnswer(answerValue: string) {
+      if (answered) return;
+      answered = true;
+      clearTimeout(timeoutId);
+      answer(answerValue);
+    }
   }
 
   function answer(answerValue: string) {
