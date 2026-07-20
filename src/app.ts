@@ -2,7 +2,7 @@ import { type Deficiency } from "./color";
 import { randomDigit, renderPlate, type PlateSpec } from "./plate";
 import { isConsistentWithChanceGuessing } from "./stats";
 
-type Axis = Deficiency | "control";
+type Axis = Deficiency | "control" | "blank";
 
 interface SequenceItem {
   axis: Axis;
@@ -15,8 +15,9 @@ interface PlateResult extends SequenceItem {
 }
 
 const DEFICIENCIES: Deficiency[] = ["protan", "deutan", "tritan"];
-const PLATES_PER_TYPE = 3;
+const PLATES_PER_TYPE = 5;
 const CONTROL_PLATES = 2;
+const BLANK_PLATES = 2;
 
 const DISCLAIMER =
   "This is a casual, for-fun screening toy — not a medical device or diagnostic test. " +
@@ -37,6 +38,10 @@ function buildSequence(): SequenceItem[] {
   for (let i = 0; i < CONTROL_PLATES; i++) {
     seq.push({ axis: "control", digit: randomDigit() });
   }
+  for (let i = 0; i < BLANK_PLATES; i++) {
+    // Blank plates hide nothing; "none" ("Can't tell") is the correct answer.
+    seq.push({ axis: "blank", digit: "none" });
+  }
   // shuffle
   for (let i = seq.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -46,9 +51,9 @@ function buildSequence(): SequenceItem[] {
 }
 
 function specFor(item: SequenceItem): PlateSpec {
-  return item.axis === "control"
-    ? { kind: "control", digit: item.digit }
-    : { kind: "confusion", deficiency: item.axis, digit: item.digit };
+  if (item.axis === "control") return { kind: "control", digit: item.digit };
+  if (item.axis === "blank") return { kind: "blank" };
+  return { kind: "confusion", deficiency: item.axis, digit: item.digit };
 }
 
 export function mount(root: HTMLElement): void {
@@ -64,10 +69,11 @@ export function mount(root: HTMLElement): void {
       <h1>Color Vision Noise Test</h1>
       <p class="disclaimer">${DISCLAIMER}</p>
       <p>You'll see ${sequence.length} plates made of colored noise, each hiding a single digit.
-      A few of them are control plates that should be readable by everyone regardless of color
-      vision — they just check you're actually looking. Enter the digit you see, or "Can't tell"
-      if nothing is legible. Nothing you enter is stored or sent anywhere — everything runs in
-      your browser.</p>
+      A few are control plates that should be readable by everyone regardless of color vision, and
+      a few are blank — no digit hidden at all — so the correct answer there is "Can't tell". Together
+      they just check you're actually looking rather than guessing. Enter the digit you see, or
+      "Can't tell" if nothing is legible. Nothing you enter is stored or sent anywhere — everything
+      runs in your browser.</p>
       <button id="start" class="primary">Start</button>
     `;
     root.appendChild(wrap);
@@ -148,14 +154,21 @@ export function mount(root: HTMLElement): void {
     const controlResults = results.filter((r) => r.axis === "control");
     const controlCorrect = controlResults.filter((r) => r.correct).length;
     const controlTotal = controlResults.length;
-    const controlPassed = controlCorrect === controlTotal;
 
-    const reliabilityWarning = controlPassed
-      ? ""
-      : `<p class="warning"><strong>Missed ${controlTotal - controlCorrect} of ${controlTotal} control
-         plate${controlTotal - controlCorrect > 1 ? "s" : ""}</strong> — these use plain brightness
-         contrast and should be readable regardless of color vision. That usually means answers were
-         rushed, guessed, or the screen was hard to see, so treat the results below as unreliable.</p>`;
+    const blankResults = results.filter((r) => r.axis === "blank");
+    const blankCorrect = blankResults.filter((r) => r.correct).length;
+    const blankTotal = blankResults.length;
+
+    const sanityMissed = controlTotal - controlCorrect + (blankTotal - blankCorrect);
+    const sanityTotal = controlTotal + blankTotal;
+
+    const reliabilityWarning =
+      sanityMissed === 0
+        ? ""
+        : `<p class="warning"><strong>Missed ${sanityMissed} of ${sanityTotal} sanity-check
+           plate${sanityMissed > 1 ? "s" : ""}</strong> (control plates that should always be visible,
+           and blank plates that hide nothing). That usually means answers were rushed, guessed, or the
+           screen was hard to see, so treat the results below as unreliable.</p>`;
 
     wrap.innerHTML = `
       <h1>Results</h1>
@@ -163,6 +176,7 @@ export function mount(root: HTMLElement): void {
       ${reliabilityWarning}
       <ul class="results">
         <li><strong>Control plates</strong>: ${controlCorrect} / ${controlTotal} read correctly</li>
+        <li><strong>Blank plates</strong>: ${blankCorrect} / ${blankTotal} correctly identified as "Can't tell"</li>
         ${rows
           .map(
             (r) =>
